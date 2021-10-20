@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="w3-content">
+        <div class="w3-margin">
+            <!-- Edit Form -->
+            <div id="edit-panel" style="display:none">
+                <form id="edit-form" action="{{ url_for("posts.single", post_id=post["id"]) }}" method="POST" class="w3-container
+        w3-card w3-padding w3-margin">
+
+                    <style>
+                        .img-zoom-result {
+                            border-radius: 20px;
+                            border: 1px solid #d4d4d4;
+                            position: relative;
+                            bottom: 20%;
+                            left: 0%;
+                            /*set the size of the result div:*/
+                            width: 400px;
+                            height: 400px;
+                        }
+
+                        .box{
+                            width:100%;
+                            margin:0 auto;
+                            overflow:hidden;
+                        }
+
+                        .box .left {
+                            width: 50%;
+                            left: 10%;
+                            /* height: 400px; */
+                            /* background-color:#0f0; */
+                            float: left;
+                        }
+
+                        .box .right {
+                            width: 50%;
+                            /* height: 400px; */
+                            /* background-color:#f00; */
+                            float: right;
+                        }
+
+                        #image {
+                            border-radius: 10px;
+                            position: relative;
+                            cursor: pointer;
+                            transition: 0.3s;
+                        }
+
+                        #image:hover {
+                            opacity: 0.8;
+                        }
+
+                        .close {
+                            position: absolute;
+                            top: 15px;
+                            right: 35px;
+                            color: #f1f1f1;
+                            font-size: 40px;
+                            font-weight: bold;
+                            transition: 0.3s;
+                        }
+
+                        .close:hover,
+                        .close:focus {
+                            color: #bbb;
+                            text-decoration: none;
+                            cursor: pointer;
+                        }
+
+                        .modal {
+                            display: none; /* Hidden by default */
+                            position: fixed; /* Stay in place */
+                            z-index: 1; /* Sit on top */
+                            padding-top: 100px; /* Location of the box */
+                            left: 0;
+                            top: 0;
+                            width: 100%; /* Full width */
+                            height: 100%; /* Full height */
+                            overflow: auto; /* Enable scroll if needed */
+                            background-color: rgb(0, 0, 0); /* Fallback color */
+                            background-color: rgba(0, 0, 0, 0.9); /* Black w/ opacity */
+                        }
+
+                        /* Modal Content (image) */
+                        .modal-content {
+                            margin: auto;
+                            display: block;
+                            width: 80%;
+                            max-width: 700px;
+                        }
+
+                        /* Caption of Modal Image */
+                        #caption {
+                            margin: auto;
+                            display: block;
+                            width: 80%;
+                            max-width: 700px;
+                            text-align: center;
+                            color: #ccc;
+                            padding: 10px 0;
+                            height: 150px;
+                        }
+
+                        /* Add Animation */
+                        .modal-content, #caption {
+                            -webkit-animation-name: zoom;
+                            -webkit-animation-duration: 0.6s;
+                            animation-name: zoom;
+                            animation-duration: 0.6s;
+                        }
+
+                        .img-zoom-container {
+                            position: relative;
+                        }
+
+                        .img-zoom-lens {
+                            position: absolute;
+                            border: 1px solid #e76316;
+                            /*set the size of the lens:*/
+                            width: 40px;
+                            height: 40px;
+                        }
+                    </style>
+
+                    <h3>Edit post</h3>
+                    <hr>
+                    <p>
+                        <label>
+                            <strong>Title</strong>
+                            <input class="w3-input" name="post_title" type="text" placeholder="Title"
+                                   value="{{ post["title"] }}">
+                        </label>
+                    </p>
+                    <p>
+                        <label>
+                            <strong>Description</strong>
+                            <textarea class="w3-input" name="post_description">{{ post["description"] }}</textarea>
+                        </label>
+                    </p>
+                    <p>
+                        <label>
+                            <strong>Image</strong>
+                            <textarea class="w3-input" name="image_url">{{ post["image_url"] }}</textarea>
+                        </label>
+                    </p>
+                    <p>
+                        <label>
+                            <strong>Video</strong>
+                            <textarea class="w3-input" name="video_url">{{ post["video_url"] }}</textarea>
+                        </label>
+                    </p>
+                    <p>
+                        <label>
+                            <strong>Audio</strong>
+                            <textarea class="w3-input" name="audio_url">{{ post["audio_url"] }}</textarea>
+                        </label>
+
+                    </p>
+                    
+                    <p>
+                        <input class="w3-check" type="checkbox" name="completed"
+                               {% if post["done"] %}checked{% endif %}> Completed
+                    </p>
+                    <div class="w3-bar w3-margin w3-padding">
+                        <button
+                                form="edit-form"
+                                type="submit"
+                                name="submit_button"
+                                value="put"
+                                class="w3-bar-item w3-right w3-button w3-large
+                               w3-white w3-border w3-text-indigo
+                               w3-hover-indigo w3-round">
+                            Done
+                        </button>
+                        <button
+                                id="cancel-edit"
+                                type="button"
+                                class="w3-bar-item w3-button w3-large
+                            w3-white w3-border w3-text-indigo
+                            w3-hover-indigo w3-round w3-right">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Details -->
+            <div id="current-post" class="w3-container w3-card w3-padding w3-margin">
+                <h3>{{ post["title"] }}</h3>
+                <p>{{ post["description"] }}</p>
+                <p>
+                    {% if "http" not in post["image_url"] %}
+                        <!-- modified here, add zoom in feature -->
+                        <div class="box">
+                            <div class="left">
+                                <div class="img-zoom-container">
+                                    <img id="image" src="{{ url_for('static', filename=post["image_url"]) }}" alt="img" width="400"
+                                        height="600">
+                                    
+                                </div>
+                            </div>
+                            <div class="right">
+                                </br> 
+                                <p>You can clink the left picture to get a larger one!</p>
+                                </br>
+                                <div id="myresult" class="img-zoom-result"></div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <img src="{{ post["image_url"] }}" alt="img" width="400" height="600">
+                    {% endif %}
+
+                    <!-- add the zoom in modal -->
+                    <div id="myModal" class="modal">
+                        <span class="close">×</span>
+                        <img class="modal-content" id="img01">
+                        <div id="caption"></div>
+                    </div>
+                </p>
+
+                <p>
+                    <!-- Video -->
+                    {% if post["video_url"] %}
+                        <video width="400" controls>
+                            <!-- <source src="mov_bbb.mp4" type="video/mp4">
+                            <source src="mov_bbb.ogg" type="video/ogg"> -->
+                            <source src="{{ url_for('static', filename=post["video_url"]) }}" type="video/mp4">
+                            <!-- <source src="mov_bbb.ogg" type="video/ogg"> -->
+                            Your browser does not support HTML video.
+                        </video>
+                    {% endif %}  
+                </p>
+
+                <p>
+                    <!-- Audio -->
+                    {% if post["audio_url"] %}
+                        <audio controls>
+                            <!-- <source src="horse.ogg" type="audio/ogg">
+                            <source src="horse.mp3" type="audio/mpeg"> -->
+                            <source src="{{ url_for('static', filename=post["audio_url"]) }}" type="audio/mpeg">
+                            Your browser does not support the audio element.
+                        </audio>
+                    {% endif %}
+                </p>
+
+                {% if current_user.is_authenticated %}
+                    <div class="w3-bar w3-margin w3-padding">
+                        <form action="{{ url_for("posts.single", post_id=post["id"]) }}" method="POST">
+                            <input
+                                type="submit"
+                                name="submit_button"
+                                value="delete"
+                                id="delete-post"
+                                class="w3-bar-item w3-button w3-large
+                                   w3-white w3-border w3-text-red
+                                   w3-hover-red w3-round w3-right"/>
+                        </form>
+                    <button
+                            id="edit-post"
+                            class="w3-bar-item w3-button w3-large
+                                    w3-white w3-border w3-text-indigo
+                                    w3-hover-indigo w3-round w3-right">
+                            Edit
+                        </button>
+                    </div>
+                {% endif %}
+                
+            </div>
+
+            <script>
+                // // The script of common zoom in
+                var modal = document.getElementById('myModal');
+
+                var img1 = document.getElementById('image');
+                var modalImg = document.getElementById("img01");
+                var captionText = document.getElementById("caption");
+                img1.onclick = function(){
+                    modal.style.display = "block";
+                    modalImg.src = img1.src;
+                    modalImg.alt = img1.alt;
+                    captionText.innerHTML = img1.alt;
+                }
+
+                // img.addEventListener("click", () => {
+                //     modal.style.display = "block";
+                //     modalImg.src = img.src;
+                //     modalImg.alt = img.alt;
+                //     captionText.innerHTML = img.alt;
+                // })
+
+                var closeButton = document.getElementsByClassName("close")[0];
+
+                closeButton.onclick = function() { 
+                    modal.style.display = "none";
+                }
+
+                // The script of zoom in details
+                function imageZoom(imgID, resultID) {
+                    var img, lens, result, cx, cy;
+                    img = document.getElementById(imgID);
+                    result = document.getElementById(resultID);
+                    /*create lens:*/
+                    lens = document.createElement("DIV");
+                    /*set lens' class to "img-zoom-lens" class*/
+                    lens.setAttribute("class", "img-zoom-lens");
+                    /*insert lens:*/
+                    img.parentElement.insertBefore(lens, img);
+                    /*calculate the ratio between result DIV and lens:*/
+                    cx = result.offsetWidth / lens.offsetWidth;
+                    cy = result.offsetHeight / lens.offsetHeight;
+                    /*set background properties for the result DIV:*/
+                    result.style.backgroundImage = "url('" + img.src + "')";
+                    result.style.backgroundSize = (img.width * cx) + "px " + (img.height * cy) + "px";
+                    /*execute a function when someone moves the cursor over the image, or the lens:*/
+                    lens.addEventListener("mousemove", moveLens);
+                    img.addEventListener("mousemove", moveLens);
+                    /*and also for touch screens:*/
+                    lens.addEventListener("touchmove", moveLens);
+                    img.addEventListener("touchmove", moveLens);
+                    function moveLens(e) {
+                        var pos, x, y;
+                        /*prevent any other actions that may occur when moving over the image:*/
+                        e.preventDefault();
+                        /*get the cursor's x and y positions:*/
+                        pos = getCursorPos(e);
+                        /*calculate the position of the lens:*/
+                        x = pos.x - (lens.offsetWidth / 2);
+                        y = pos.y - (lens.offsetHeight / 2);
+                        /*prevent the lens from being positioned outside the image:*/
+                        if (x > img.width - lens.offsetWidth) {x = img.width - lens.offsetWidth;}
+                        if (x < 0) {x = 0;}
+                        if (y > img.height - lens.offsetHeight) {y = img.height - lens.offsetHeight;}
+                        if (y < 0) {y = 0;}
+                        /*set the position of the lens:*/
+                        /*there is a bug here and didn't solve*/
+                        lens.style.left = x + "px";
+                        lens.style.top = y + "px";
+                        /*display what the lens "sees":*/
+                        result.style.backgroundPosition = "-" + (x * cx) + "px -" + (y * cy) + "px";
+                    }
+                    function getCursorPos(e) {
+                        var a, x = 0, y = 0;
+                        e = e || window.event;
+                        /*get the x and y positions of the image:*/
+                        a = img.getBoundingClientRect();
+                        /*calculate the cursor's x and y coordinates, relative to the image:*/
+                        x = e.pageX - a.left;
+                        y = e.pageY - a.top;
+                        /*consider any page scrolling:*/
+                        x = x - window.pageXOffset;
+                        y = y - window.pageYOffset;
+                        return {x : x, y : y};
+                    }
+                }
+                // Initiate zoom effect:
+                imageZoom("image", "myresult");
+                
+            </script>
+
+            <footer class="w3-container">
+                <a href="{{ url_for("posts.all") }}">Back to all posts</a>
+            </footer>
+        </div>
+    </div>
+{% endblock content %}
+
+
+{% block scripts %}
+    <script
+            charset="utf-8"
+            type="text/javascript"
+            src="{{ url_for('static', filename='js/post.js') }}">
+    </script>
+{% endblock scripts %}

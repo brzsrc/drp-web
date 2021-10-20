@@ -1,0 +1,28 @@
+default:
+  image: python:3.8
+
+variables:
+  PORT: 5000
+
+stages:
+  - test
+  - deploy
+
+test-job:
+  stage: test
+  script:
+    - python3.8 -m venv venv
+    - . venv/bin/activate
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - python tests.py
+
+
+deploy-heroku:
+  stage: deploy
+  script:
+    - apt-get update -qy
+    - apt-get install -y ruby-dev
+    - gem install dpl
+    - dpl --provider=heroku --app=drp09 --api-key=a0b1d978-573d-4625-a0c0-adfd9b04c658
+

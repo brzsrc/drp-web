@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>virtualGallery</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			#blocker {
+				position: absolute;
+				width: 100%;
+				height: 100%;
+				background-color: rgba(0,0,0,0.5);
+			}
+
+			#instructions {
+				width: 100%;
+				height: 100%;
+
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+
+				text-align: center;
+				font-size: 14px;
+				cursor: pointer;
+			}
+		</style>
+	</head>
+	<body>
+		<video id="video" loop crossOrigin="anonymous" playsinline style="display:none">
+			<source src="../static/video/PatternsMemory.mp4" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"'>
+		</video>
+
+		<div id="blocker">
+			<div id="instructions">
+				<p style="font-size:36px">
+					Click to View
+				</p>
+				<p>
+					Move: WASD<br/>
+					Jump: SPACE<br/>
+					Look: MOUSE<br/>
+					PlayVideo: P
+				</p>
+			</div>
+		</div>
+
+		<script type="module">
+
+			import * as THREE from '../static/three.js-master2/build/three.module.js';
+
+			import { PointerLockControls } from '../static/three.js-master2/examples/jsm/controls/PointerLockControls.js';
+
+			let camera, scene, renderer, controls;
+
+			const objects = [];
+
+			let raycaster;
+
+			let moveForward = false;
+			let moveBackward = false;
+			let moveLeft = false;
+			let moveRight = false;
+			let canJump = true;
+			let videoPlay = true;
+			let prevTime = performance.now();
+			const velocity = new THREE.Vector3();
+			const direction = new THREE.Vector3();
+			const vertex = new THREE.Vector3();
+			const color = new THREE.Color();
+			const video = document.getElementById( 'video' );
+			const loader = new THREE.FontLoader();
+			scene = new THREE.Scene();
+
+			var wall = new THREE.BoxGeometry(300, 200, 10, 9 ,9);
+
+
+			init();
+			animate();
+
+			// 坐标系辅助显示
+			var axesHelper = new THREE.AxesHelper(1000);
+			//scene.add(axesHelper);
+			function init() {
+
+				camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 1000 );
+				camera.position.set(-100,10,600);
+				//camera.position.set(0,10,0);
+
+				scene.background = new THREE.Color( 0xffffff );
+				//scene.fog = new THREE.Fog( 0xffffff, 0, 750 );
+
+				//const light = new THREE.HemisphereLight( 0xeeeeff, 0x777788, 0.75 );
+				//light.position.set( 0.5, 1, 0.75 );
+				//scene.add( light );
+
+				var ambient = new THREE.AmbientLight(0x888888);
+				scene.add(ambient);
+
+				controls = new PointerLockControls( camera, document.body );
+
+				const blocker = document.getElementById( 'blocker' );
+				const instructions = document.getElementById( 'instructions' );
+
+				instructions.addEventListener( 'click', function () {
+
+					controls.lock();
+
+				} );
+
+				controls.addEventListener( 'lock', function () {
+
+					instructions.style.display = 'none';
+					blocker.style.display = 'none';
+
+				} );
+
+				controls.addEventListener( 'unlock', function () {
+
+					blocker.style.display = 'block';
+					instructions.style.display = '';
+
+				} );
+
+				scene.add( controls.getObject() );
+
+				const onKeyDown = function ( event ) {
+
+					switch ( event.code ) {
+
+						case 'ArrowUp':
+						case 'KeyW':
+							moveForward = true;
+							break;
+
+						case 'ArrowLeft':
+						case 'KeyA':
+							moveLeft = true;
+							break;
+
+						case 'ArrowDown':
+						case 'KeyS':
+							moveBackward = true;
+							break;
+
+						case 'ArrowRight':
+						case 'KeyD':
+							moveRight = true;
+							break;
+
+						case 'Space':
+							if ( canJump === true ) velocity.y += 350;
+							canJump = false;
+							break;
+
+						case 'KeyP': 
+							if(videoPlay === true) {
+								video.play();
+								videoPlay = false;
+							}else{
+								video.pause();
+								videoPlay = true;
+							}
+							break;
+							
+
+							
+					}
+
+				};
+
+				const onKeyUp = function ( event ) {
+
+					switch ( event.code ) {
+
+						case 'ArrowUp':
+						case 'KeyW':
+							moveForward = false;
+							break;
+
+						case 'ArrowLeft':
+						case 'KeyA':
+							moveLeft = false;
+							break;
+
+						case 'ArrowDown':
+						case 'KeyS':
+							moveBackward = false;
+							break;
+
+						case 'ArrowRight':
+						case 'KeyD':
+							moveRight = false;
+							break;
+
+					}
+
+				};
+
+				document.addEventListener( 'keydown', onKeyDown );
+				document.addEventListener( 'keyup', onKeyUp );
+
+				raycaster = new THREE.Raycaster( new THREE.Vector3(), new THREE.Vector3( 0, - 1, 0 ), 0, 10 );
+
+				// floor
+
+				let floorGeometry = new THREE.PlaneGeometry( 2000, 2000, 100, 100 );
+				floorGeometry.rotateX( - Math.PI / 2 );
+
+				let position = floorGeometry.attributes.position;
+
+				const colorsFloor = [];
+
+				for ( let i = 0, l = position.count; i < l; i ++ ) {
+
+					color.setHSL( Math.random() * 0.6 + 2, 0.75, Math.random() * 0.2 + 0.75 );
+					colorsFloor.push( color.r, color.g, color.b );
+
+				}
+
+				floorGeometry.setAttribute( 'color', new THREE.Float32BufferAttribute( colorsFloor, 3 ) );
+
+				const floorMaterial = new THREE.MeshLambertMaterial( { 
+					//vertexColors: false,
+					color: 0xFFFFFF,
+				} );
+
+				const floor = new THREE.Mesh( floorGeometry, floorMaterial );
+				var floorGroup = new THREE.Group();
+				floorGroup.add(floor);
+
+				loader.load( '../static/three.js-master2/examples/fonts/helvetiker_regular.typeface.json', function ( font ) {
+					const message = " Virtual Memory: Time-Based Art and the Dream of Digitality' written by Homay King in 2015, raised \n matters of dreams, art, memory. I record things from my memory, one of them is dreams. Then I made \n them into patterns. I record them because I like the ability that I can make my virtual world to \n reality and share it with others. King stated a quotation of Gilles Deleuze, 'Virtual is not opposed \n to real; what is opposed to the real is the possible.' It makes me think over many times to \n understand what it means. In my opinion, I think it relates to something I like, for instance, \n animation. I have heard many times from parents, they tell the children, (ACG) animations, comics,\n  and games are not real, you can believe them, they are toxic, they compose the real. But, really? I \n think it is real, but not composed to the real. A little bit complicated. What I mean is, \n animations created by human, so they do exist; however, they are not possible, the least non of them \n come to the true life, non of any famous characters like spider-man be alive. They are still \n characters and in a two-dimensional space that we can not touch or live with. I think this is the \n meaning of King's text: \n'It is not impossible, but it is also not pos- sible, technically speaking. It is virtual.' \nBecause it is virtual, so that world and this world has a boundary. But this boundary is unclear and \n blurry. I think dreams are something between them, in the grey zone in between the real and unreal world, \nthat is the reason why it is so interesting to me. Regarding the definition stated by Adler (2021), \n they are vivid and lifelike, and they are from experiences or imaginations.";
+
+					const shapes = font.generateShapes( message, 1 );
+
+					const geometry = new THREE.ShapeGeometry( shapes );
+
+					geometry.computeBoundingBox();
+
+					const xMid = - 0.5 * ( geometry.boundingBox.max.x - geometry.boundingBox.min.x );
+
+					geometry.translate( xMid, 0, 0 );
+
+					var material = new THREE.MeshBasicMaterial({
+						color: 0x000000,
+					});
+
+					const text = new THREE.Mesh( geometry, material );
+					text.rotateX( - Math.PI / 2 );
+					text.position.add(new THREE.Vector3(20,1,-20));
+					floorGroup.add(text);
+
+				} ); 
+				scene.add( floorGroup );
+
+				// objects///////////////////////////////////////////////
+
+
+				var wallS = new THREE.PlaneGeometry(150, 200, 9 ,9);
+				var wallSide = new THREE.BoxGeometry(10, 200, 300, 9 ,9);
+				var wallFront = new THREE.BoxGeometry(250, 200, 10, 9 ,9);
+				var materialS = new THREE.MeshBasicMaterial({
+					//color: 0xE0EEE0,
+					// map:texture,
+					side:THREE.DoubleSide,
+					vertexColors: true,
+					//wireframe:true,
+				});
+				wallS.setAttribute( 'color', new THREE.Float32BufferAttribute( colorsFloor, 3 ) );
+				wall.setAttribute( 'color', new THREE.Float32BufferAttribute( colorsFloor, 3 ) );
+				wallSide.setAttribute( 'color', new THREE.Float32BufferAttribute( colorsFloor, 3 ) );
+				wallFront.setAttribute( 'color', new THREE.Float32BufferAttribute( colorsFloor, 3 ) );
+
+				var wallMeshBack = new THREE.Mesh(wall, materialS);
+				wallMeshBack.translateZ(-150);
+
+				var wallMeshLeft = new THREE.Mesh(wallSide, materialS);
+				wallMeshLeft.translateX(-150);
+
+				var wallMeshRight = new THREE.Mesh(wallSide, materialS);
+				wallMeshRight.translateX(140);
+
+				var wallMeshFront = new THREE.Mesh(wallFront, materialS);
+				wallMeshFront.translateX(15);
+				wallMeshFront.translateZ(150);	
+				
+				var wallMeshS = new THREE.Mesh(wallS, materialS);
+				wallMeshS.translateX(-75);
+				wallMeshS.translateZ(40);
+				
+				var videoTexture = new THREE.VideoTexture(video)
+				var videoMaterial = new THREE.MeshPhongMaterial({
+					map: videoTexture, 
+				}); 
+				var videoGeometry = new THREE.PlaneGeometry(50, 30);
+				var videoMesh = new THREE.Mesh(videoGeometry, videoMaterial);
+				let videoPosition = new THREE.Vector3();
+				scene.updateMatrixWorld(true);
+				wallMeshS.getWorldPosition(videoPosition); 
+				videoMesh.position.add(videoPosition);
+				
+				//console.log(videoPosition);
+				videoMesh.translateY(15);
+				videoMesh.translateZ(1);
+
+				//var pointLight = new THREE.SpotLight(0xffffff);
+				//let lightPosition = new THREE.Vector3();
+				//scene.updateMatrixWorld(true);
+				//pointLight.position.add(new THREE.Vector3(-75, 200, 75))
+				//pointLight.intensity = 10;
+				//console.log(pointLight.position);
+			
+				var group = new THREE.Group();
+				group.add(wallMeshLeft, wallMeshRight);
+				group.add( wallMeshFront, wallMeshBack);
+				group.add(wallMeshS);
+				group.add(videoMesh);
+				scene.add(group);
+				objects.push(group);
+				//
+			
+				/**
+				* titleMesh
+				*/
+				var canvas = document.createElement("canvas");
+				canvas.width = 512;
+				canvas.height = 128;
+				var c = canvas.getContext('2d');
+				// 矩形区域填充背景
+				c.fillStyle = "#ffffff";
+				c.fillRect(0, 0, 512, 128);
+				c.beginPath();
+				// 文字
+				c.beginPath();
+				c.translate(256, 64);
+				c.fillStyle = "#000000"; //文本填充颜色
+				c.font = "bold 48px Arial"; //字体样式设置
+				c.textBaseline = "middle"; //文本与fillText定义的纵坐标
+				c.textAlign = "center"; //文本居中(以fillText定义的横坐标)
+				c.fillText("AUB Y1 T3", 0, 0);
+			
+				var canvasGeometry = new THREE.PlaneGeometry(128, 32); //矩形平面
+				var canvasTexture = new THREE.CanvasTexture(canvas);
+				var canvasMaterial = new THREE.MeshPhongMaterial({
+					map: canvasTexture, // 设置纹理贴图
+				  }); //材质对象Material
+				var canvasMesh = new THREE.Mesh(canvasGeometry, canvasMaterial); 
+				canvasMesh.position.add(new THREE.Vector3(-20, 40, 161));
+				scene.add(canvasMesh); //网格模型添加到场景中
+		
+
+
+
+				///		
+				var bottle1Texture = new THREE.TextureLoader().load("../static/imgs/bottle1.png");
+				var bottle1Group = createPicWall(bottle1Texture, 10, 12);
+				bottle1Group.rotateY(Math.PI/2);
+				bottle1Group.position.add(new THREE.Vector3(-75, 0 ,0));
+
+				var bottle2Texture = new THREE.TextureLoader().load("../static/imgs/bottle2.png");
+				var bottle2Group = createPicWall(bottle2Texture, 10, 12);
+				bottle2Group.rotateY(Math.PI/2);
+				bottle2Group.position.add(new THREE.Vector3(-75, 0 ,-50));
+
+				var bottle3Texture = new THREE.TextureLoader().load("../static/imgs/bottle3.png");
+				var bottle3Group = createPicWall(bottle3Texture, 15, 12);
+				bottle3Group.rotateY(-Math.PI/2);
+				bottle3Group.position.add(new THREE.Vector3(110, 0 ,-20));
+
+				var clearerPicTexture = new THREE.TextureLoader().load("../static/imgs/clearerPic.PNG");
+				var clearerPicGroup = createPicWall(clearerPicTexture, 15, 12);
+				
+				clearerPicGroup.position.add(new THREE.Vector3(20, 0 ,-90));
+
+				var frontPicTexture = new THREE.TextureLoader().load("../static/imgs/frontPic.PNG");
+				var frontPicGroup = createPicWall(frontPicTexture, 15, 10);
+				frontPicGroup.position.add(new THREE.Vector3(75, 0 , -75));
+
+
+				var longPicTexture = new THREE.TextureLoader().load("../static/imgs/longPic.png");
+				var longPicGroup = createPicWall(longPicTexture, 50, 12);
+				longPicGroup.rotateY(- Math.PI/2);
+				longPicGroup.position.add(new THREE.Vector3(60, 0 ,75));
+
+				var selfPicTexture = new THREE.TextureLoader().load("../static/imgs/selfPic.png");
+				var selfPicGroup = createPicWall(selfPicTexture, 10, 12);
+				
+				loader.load( '../static/three.js-master2/examples/fonts/helvetiker_regular.typeface.json', function ( font ) {
+					const message = " Evelyn is a designer who enjoys combining art and \ntextiles in her work, also photographs. She is inspired \nby nature and likes seeking the beauty of decay to \nshows another beauty of life, as it is pure and peaceful.\nHer photographs also focus on natural forms. She \ndevelops different ideas in illustrations and fine \nartwork \n         THE SELF PORTRAIT OF THE ARTIST";
+
+					const shapes = font.generateShapes( message, 1 );
+
+					const geometry = new THREE.ShapeGeometry( shapes );
+
+					geometry.computeBoundingBox();
+
+					const xMid = - 0.5 * ( geometry.boundingBox.max.x - geometry.boundingBox.min.x );
+
+					geometry.translate( xMid, 0, 0 );
+
+					var material = new THREE.MeshBasicMaterial({
+						color: 0x000000,
+					});
+
+					const text = new THREE.Mesh( geometry, material );
+					text.position.add(new THREE.Vector3(3,24,0));
+					selfPicGroup.add(text);
+
+				} ); 
+				
+				selfPicGroup.position.add(new THREE.Vector3(-30, 0 ,-85));
+				//objects.push(newGroup1, newGroup2);
+				//objects.push(newGroup1, newGroup2, newGroup3);
+
+				//
+
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.body.appendChild( renderer.domElement );
+
+				//
+
+				window.addEventListener( 'resize', onWindowResize );
+
+			}
+
+			function createPicWall(picTexture, picWidth, picHeight) {
+				
+				var picGroup = new THREE.Group();
+				var picWallPlane = new THREE.PlaneGeometry(picWidth * 2, picHeight * 2);
+				var materialW = new THREE.MeshBasicMaterial({
+					color: 0x000000,
+					side:THREE.DoubleSide,					
+				});
+				var picWall = new THREE.Mesh(picWallPlane, materialW);
+				picGroup.add(picWall);
+
+				var picMaterial = new THREE.MeshBasicMaterial({
+					map: picTexture,
+				})
+				var picPlane = new THREE.PlaneGeometry(picWidth, picHeight);
+				var pic = new THREE.Mesh(picPlane, picMaterial);
+				pic.translateZ(1);
+				picGroup.add(pic);
+
+	
+				picGroup.translateY(picHeight);
+				scene.add(picGroup);
+
+				return picGroup;
+			}
+			
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				const time = performance.now();
+
+				if ( controls.isLocked === true ) {
+
+					raycaster.ray.origin.copy( controls.getObject().position );
+					raycaster.ray.origin.y -= 10;
+
+					const intersections = raycaster.intersectObjects( objects );
+
+					const onObject = intersections.length > 0;
+
+					const delta = ( time - prevTime ) / 1000;
+
+					velocity.x -= velocity.x * 20.0 * delta;
+					velocity.z -= velocity.z * 20.0 * delta;
+
+					velocity.y -= 9.8 * 100.0 * delta; // 100.0 = mass
+
+					direction.z = Number( moveForward ) - Number( moveBackward );
+					direction.x = Number( moveRight ) - Number( moveLeft );
+					direction.normalize(); // this ensures consistent movements in all directions
+
+					if ( moveForward || moveBackward ) velocity.z -= direction.z * 3000.0 * delta;
+					if ( moveLeft || moveRight ) velocity.x -= direction.x * 3000.0 * delta;
+
+					if ( onObject === true ) {
+
+						velocity.y = Math.max( 0, velocity.y );
+						canJump = true;
+
+					}
+
+					controls.moveRight( - velocity.x * delta );
+					controls.moveForward( - velocity.z * delta );
+
+					controls.getObject().position.y += ( velocity.y * delta ); // new behavior
+
+					if ( controls.getObject().position.y < 10 ) {
+
+						velocity.y = 0;
+						controls.getObject().position.y = 10;
+
+						canJump = true;
+
+					}
+
+				}
+
+				prevTime = time;
+
+				renderer.render( scene, camera );
+        //texture.needsUpdate = true;
+			}
+
+		</script>
+	</body>
+</html>

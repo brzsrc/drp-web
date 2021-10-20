@@ -1,0 +1,2 @@
+FLASK_APP=artplatform/app.py
+FLASK_ENV=development

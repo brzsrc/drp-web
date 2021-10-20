@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+    <div class="w3-content">
+        <div class="w3-margin">
+            <div id="new-post" style="display:none">
+                <form action="{{ url_for("posts.all") }}" method="POST"
+                      class="w3-container w3-card w3-padding w3-margin">
+                    <h3>New post</h3>
+                    <hr>
+                    <p>
+                        <input class="w3-input" name="post_title" type="text" placeholder="Title">
+                    </p>
+                    <p>
+                        <textarea class="w3-input" name="post_description" type="textarea"
+                                  placeholder="Description"></textarea>
+                    </p>
+                    <p>
+                        <input class="w3-input" name="image_url" type="text" placeholder="Image_URL">
+                    </p>
+                    <p>
+                        <input class="w3-input" name="video_url" type="text" placeholder="Video_URL">
+                    </p>
+                    <p>
+                        <input class="w3-input" name="audio_url" type="text" placeholder="Audio_URL">
+                    </p>
+                    <button
+                            type="submit"
+                            class="w3-right w3-button w3-large
+                   w3-white w3-border w3-text-indigo
+                   w3-hover-indigo w3-round w3-margin">
+                        Add
+                    </button>
+                </form>
+            </div>
+            {% if current_user.is_authenticated %}
+            <button
+                    id="add-post"
+                    class="w3-right w3-button w3-large
+                 w3-white w3-border w3-text-indigo
+                 w3-hover-indigo w3-round w3-margin">
+                New
+            </button>
+            {% endif %}
+            <div class="w3-container">
+                <ul class="w3-ul w3-card">
+                    {% for post in posts %}
+                        <li class="w3-large">
+                            <a href="{{ url_for("posts.single", post_id=post["id"]) }}"
+                               style="display:block; text-decoration:none ">{{ post["title"] }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endblock content %}
+
+{% block scripts %}
+    <script
+            charset="utf-8"
+            type="text/javascript"
+            src="{{ url_for('static', filename='js/posts.js') }}">
+    </script>
+{% endblock scripts %}

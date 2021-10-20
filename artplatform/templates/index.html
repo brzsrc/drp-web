@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+    <div>
+            <h1>Image Platform Designed for Artists</h1>
+            <p>
+                <!-- Go <a href="{{ url_for("posts.all") }}">here</a> to
+                see all the artworks uploaded. -->
+                {% if current_user.is_authenticated %}
+                    Go <a href="{{ url_for("posts.all") }}">here</a> to
+                                    see all the artworks uploaded.
+                {% endif %}
+                {% if not current_user.is_authenticated %}
+                    Please sign up/log in first.
+                {% endif %}
+            </p>
+    </div>
+{% endblock content %}
